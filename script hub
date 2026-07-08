@@ -1,5 +1,4 @@
 -- 大不列颠超入脚本中心
--- 包含：排干湖水、滑膛枪与机器人、动物医院
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -11,6 +10,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
+-- ... 后续代码保持不变
 
 local currentLanguage = "Chinese"
 
