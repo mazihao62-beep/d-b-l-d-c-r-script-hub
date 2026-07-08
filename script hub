@@ -1,3 +1,4 @@
+print("脚本中心已启动")
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -10,7 +11,7 @@ local playerGui = player:WaitForChild("PlayerGui")
 local currentLanguage = "Chinese"
 
 -- 通用通知
-local function showNotification(title, content, duration)
+local function showNotification(title, content, duration)print("playerGui 类型:", typeof(playerGui))
     duration = duration or 2
     StarterGui:SetCore("SendNotification", {
         Title = title,
@@ -20,7 +21,8 @@ local function showNotification(title, content, duration)
 end
 
 -- 语言选择界面
-local function createLanguageSelection()
+print("即将创建语言选择界面")
+print("进入了 createLanguageSelection 函数")local function createLanguageSelection()
     local langGui = Instance.new("ScreenGui")
     langGui.Name = "LanguageSelector"
     langGui.Parent = playerGui
