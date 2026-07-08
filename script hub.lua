@@ -1,4 +1,3 @@
-print("脚本中心已启动")
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,7 +10,7 @@ local playerGui = player:WaitForChild("PlayerGui")
 local currentLanguage = "Chinese"
 
 -- 通用通知
-local function showNotification(title, content, duration)print("playerGui 类型:", typeof(playerGui))
+local function showNotification(title, content, duration)
     duration = duration or 2
     StarterGui:SetCore("SendNotification", {
         Title = title,
@@ -21,8 +20,7 @@ local function showNotification(title, content, duration)print("playerGui 类型
 end
 
 -- 语言选择界面
-print("即将创建语言选择界面")
-print("进入了 createLanguageSelection 函数")local function createLanguageSelection()
+local function createLanguageSelection()
     local langGui = Instance.new("ScreenGui")
     langGui.Name = "LanguageSelector"
     langGui.Parent = playerGui
@@ -1171,3 +1169,7 @@ function loadAnimalHospital()
     end
     createMainGui()
 end
+
+-- 启动中心
+-- 注意：此前Part 1末尾已经调用了 createLanguageSelection()，但定义在全局作用域，此处再次确认。
+-- 由于Part 1已经执行了 createLanguageSelection()，此处无需重复。
