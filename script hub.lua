@@ -500,7 +500,444 @@ function loadDrainLake()
     end
     createMainGui()
 end
-function loadMusketRobot() end
+function loadMusketRobot()
+    local langTable = {
+        Chinese = {
+            title = "滑膛枪与机器人脚本",
+            aimbot = "普通自瞄", autoFire = "自动开火", espEnabled = "透视敌人",
+            smoothing = "平滑速度", aimPart = "瞄准部位", maxDist = "最大距离",
+            fovEnabled = "FOV限制", fovRadius = "FOV半径", wallCheck = "墙壁检测",
+            head = "头部", hrp = "躯干",
+            notice = "支持人机：RanKer, Cuirassier, Skirmsher, Grenadier, Officer",
+            floatText = "b站:英吉利超入_",
+            aimbotOn = "自瞄已开启", autoFireOn = "自动开火已开启", espOn = "敌人透视已开启",
+        },
+        English = {
+            title = "Musket & Robot Script",
+            aimbot = "Aimbot", autoFire = "Auto Fire", espEnabled = "ESP",
+            smoothing = "Smoothing", aimPart = "Aim Part", maxDist = "Max Distance",
+            fovEnabled = "FOV Limit", fovRadius = "FOV Radius", wallCheck = "Wall Check",
+            head = "Head", hrp = "Torso",
+            notice = "Targets: RanKer, Cuirassier, Skirmsher, Grenadier, Officer",
+            floatText = "bilibili: Yingjili Chaoru_",
+            aimbotOn = "Aimbot enabled", autoFireOn = "Auto Fire enabled", espOn = "ESP enabled",
+        }
+    }
+    local lang = langTable[currentLanguage]
+
+    local Players = game:GetService("Players")
+    local Workspace = game:GetService("Workspace")
+    local StarterGui = game:GetService("StarterGui")
+    local RunService = game:GetService("RunService")
+
+    local player = Players.LocalPlayer
+    local playerGui = player:WaitForChild("PlayerGui")
+
+    local currentWeapon = nil
+    local currentRemoteEvent = nil
+    local function updateWeapon()
+        local char = player.Character
+        if not char then currentWeapon = nil; currentRemoteEvent = nil; return false end
+        for _, tool in ipairs(char:GetChildren()) do
+            if tool:IsA("Tool") then
+                local event = tool:FindFirstChild("RemoteEvent") or tool:FindFirstChild("FireEvent")
+                if event and event:IsA("RemoteEvent") then currentWeapon = tool; currentRemoteEvent = event; return true end
+            end
+        end
+        currentWeapon = nil; currentRemoteEvent = nil; return false
+    end
+    player.CharacterAdded:Connect(function() task.wait(0.2); updateWeapon() end)
+    if player.Character then updateWeapon() end
+
+    local ENEMY_NAMES = { "RanKer", "Cuirassier", "Skirmsher", "Grenadier", "Officer" }
+    local ENEMY_CN = { ["RanKer"] = "突击兵", ["Cuirassier"] = "胸甲骑兵", ["Skirmsher"] = "散兵", ["Grenadier"] = "掷弹兵", ["Officer"] = "军官" }
+
+    local function showNotification(title, content, duration)
+        duration = duration or 2
+        StarterGui:SetCore("SendNotification", { Title = title, Text = content, Duration = duration })
+    end
+
+    local function createMainGui()
+        local screenGui = Instance.new("ScreenGui")
+        screenGui.Name = "MusketRobotUI"
+        screenGui.Parent = playerGui
+        screenGui.AncestryChanged:Connect(function() if not screenGui.Parent then screenGui.Parent = playerGui end end)
+        task.spawn(function() while true do if not screenGui.Parent then screenGui.Parent = playerGui end; task.wait(1) end end)
+
+        local mainFrame = Instance.new("Frame")
+        mainFrame.Size = UDim2.new(0, 500, 0, 360)
+        mainFrame.Position = UDim2.new(0.5, -250, 0.4, -180)
+        mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+        mainFrame.BackgroundTransparency = 0.05
+        mainFrame.BorderSizePixel = 0
+        mainFrame.Active = true
+        mainFrame.Draggable = true
+        mainFrame.Parent = screenGui
+        Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 10)
+        local mainStroke = Instance.new("UIStroke")
+        mainStroke.Thickness = 2
+        mainStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        mainStroke.Color = Color3.fromRGB(255, 100, 100)
+        mainStroke.Parent = mainFrame
+
+        local lastPosition = mainFrame.Position
+        local lastSize = mainFrame.Size
+        local isMaximized = false
+        mainFrame:GetPropertyChangedSignal("Position"):Connect(function() if not isMaximized then lastPosition = mainFrame.Position end end)
+        mainFrame:GetPropertyChangedSignal("Size"):Connect(function() if not isMaximized then lastSize = mainFrame.Size end end)
+
+        local titleBar = Instance.new("Frame")
+        titleBar.Size = UDim2.new(1, 0, 0, 32)
+        titleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+        titleBar.BorderSizePixel = 0
+        titleBar.Parent = mainFrame
+        local titleCorner = Instance.new("UICorner"); titleCorner.CornerRadius = UDim.new(0, 10); titleCorner.Parent = titleBar
+        local titleLabel = Instance.new("TextLabel")
+        titleLabel.Size = UDim2.new(1, -70, 1, 0); titleLabel.Position = UDim2.new(0, 12, 0, 0)
+        titleLabel.BackgroundTransparency = 1; titleLabel.Font = Enum.Font.SourceSansBold; titleLabel.TextSize = 16
+        titleLabel.TextColor3 = Color3.new(1, 1, 1); titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+        titleLabel.Text = lang.title; titleLabel.TextScaled = true; titleLabel.Parent = titleBar
+
+        local minimizeBtn = Instance.new("TextButton")
+        minimizeBtn.Size = UDim2.new(0, 26, 0, 26); minimizeBtn.Position = UDim2.new(1, -56, 0, 3)
+        minimizeBtn.Text = "─"; minimizeBtn.Font = Enum.Font.SourceSansBold; minimizeBtn.TextSize = 16
+        minimizeBtn.TextColor3 = Color3.new(1, 1, 1); minimizeBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+        minimizeBtn.BorderSizePixel = 0; minimizeBtn.Parent = titleBar
+        Instance.new("UICorner", minimizeBtn).CornerRadius = UDim.new(0, 5)
+
+        local maximizeBtn = Instance.new("TextButton")
+        maximizeBtn.Size = UDim2.new(0, 26, 0, 26); maximizeBtn.Position = UDim2.new(1, -28, 0, 3)
+        maximizeBtn.Text = "□"; maximizeBtn.Font = Enum.Font.SourceSansBold; maximizeBtn.TextSize = 16
+        maximizeBtn.TextColor3 = Color3.new(1, 1, 1); maximizeBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+        maximizeBtn.BorderSizePixel = 0; maximizeBtn.Parent = titleBar
+        Instance.new("UICorner", maximizeBtn).CornerRadius = UDim.new(0, 5)
+
+        local function addHover(btn)
+            local orig = btn.BackgroundColor3
+            btn.MouseEnter:Connect(function() btn.BackgroundColor3 = orig:Lerp(Color3.new(1,1,1), 0.2) end)
+            btn.MouseLeave:Connect(function() btn.BackgroundColor3 = orig end)
+        end
+        addHover(minimizeBtn); addHover(maximizeBtn)
+
+        local contentFrame = Instance.new("ScrollingFrame")
+        contentFrame.Size = UDim2.new(1, -24, 1, -44); contentFrame.Position = UDim2.new(0, 12, 0, 38)
+        contentFrame.BackgroundTransparency = 1; contentFrame.ScrollBarThickness = 4
+        contentFrame.CanvasSize = UDim2.new(0, 0, 0, 600); contentFrame.Parent = mainFrame
+        local listLayout = Instance.new("UIListLayout")
+        listLayout.SortOrder = Enum.SortOrder.LayoutOrder; listLayout.Padding = UDim.new(0, 6); listLayout.Parent = contentFrame
+
+        local function createToggleButton(text, parent, order)
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(1, -10, 0, 38); btn.Text = text
+            btn.BackgroundColor3 = Color3.fromRGB(60, 160, 60); btn.TextColor3 = Color3.new(1, 1, 1)
+            btn.Font = Enum.Font.SourceSansBold; btn.TextSize = 14; btn.LayoutOrder = order; btn.Parent = parent
+            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+            return btn
+        end
+        local function createSlider(title, min, max, default, parent, order)
+            local frame = Instance.new("Frame"); frame.Size = UDim2.new(1, 0, 0, 42)
+            frame.BackgroundTransparency = 1; frame.LayoutOrder = order; frame.Parent = parent
+            local label = Instance.new("TextLabel"); label.Size = UDim2.new(1, 0, 0, 18)
+            label.BackgroundTransparency = 1; label.Font = Enum.Font.SourceSans; label.TextSize = 12
+            label.TextColor3 = Color3.new(1, 1, 1); label.TextXAlignment = Enum.TextXAlignment.Left
+            label.Text = title .. ": " .. tostring(default); label.Parent = frame
+            local input = Instance.new("TextBox"); input.Size = UDim2.new(1, 0, 0, 20)
+            input.Position = UDim2.new(0, 0, 0, 20); input.Text = tostring(default)
+            input.BackgroundColor3 = Color3.fromRGB(50, 50, 50); input.TextColor3 = Color3.new(1,1,1)
+            input.Font = Enum.Font.SourceSans; input.TextSize = 12; input.Parent = frame
+            return {
+                SetValue = function(val) input.Text = tostring(val); label.Text = title .. ": " .. tostring(val) end,
+                GetValue = function() return tonumber(input.Text) or default end,
+                Frame = frame
+            }
+        end
+        local function createDropdown(title, options, default, parent, order)
+            local frame = Instance.new("Frame"); frame.Size = UDim2.new(1, 0, 0, 42)
+            frame.BackgroundTransparency = 1; frame.LayoutOrder = order; frame.Parent = parent
+            local label = Instance.new("TextLabel"); label.Size = UDim2.new(1, 0, 0, 18)
+            label.BackgroundTransparency = 1; label.Font = Enum.Font.SourceSans; label.TextSize = 12
+            label.TextColor3 = Color3.new(1,1,1); label.TextXAlignment = Enum.TextXAlignment.Left
+            label.Text = title; label.Parent = frame
+            local dropdown = Instance.new("TextButton"); dropdown.Size = UDim2.new(1, 0, 0, 20)
+            dropdown.Position = UDim2.new(0, 0, 0, 20); dropdown.Text = default
+            dropdown.BackgroundColor3 = Color3.fromRGB(50,50,50); dropdown.TextColor3 = Color3.new(1,1,1)
+            dropdown.Font = Enum.Font.SourceSans; dropdown.TextSize = 12; dropdown.Parent = frame
+            local optionList = nil
+            dropdown.MouseButton1Click:Connect(function()
+                if optionList then optionList:Destroy(); optionList = nil return end
+                optionList = Instance.new("Frame"); optionList.Size = UDim2.new(1, 0, 0, #options * 22)
+                optionList.Position = UDim2.new(0, 0, 1, 0); optionList.BackgroundColor3 = Color3.fromRGB(40,40,40)
+                optionList.BorderSizePixel = 0; optionList.ZIndex = 10; optionList.Parent = dropdown
+                for i, opt in ipairs(options) do
+                    local optBtn = Instance.new("TextButton"); optBtn.Size = UDim2.new(1, 0, 0, 22)
+                    optBtn.Position = UDim2.new(0, 0, 0, (i-1)*22); optBtn.Text = opt
+                    optBtn.BackgroundColor3 = Color3.fromRGB(60,60,60); optBtn.TextColor3 = Color3.new(1,1,1)
+                    optBtn.Font = Enum.Font.SourceSans; optBtn.TextSize = 12; optBtn.ZIndex = 11; optBtn.Parent = optionList
+                    optBtn.MouseButton1Click:Connect(function() dropdown.Text = opt; optionList:Destroy(); optionList = nil end)
+                end
+            end)
+            return { GetValue = function() return dropdown.Text end, SetValue = function(val) dropdown.Text = val end, Frame = frame }
+        end
+
+        -- 以下是控件创建，由 Part 3b 继续
+        local aimbotBtn = createToggleButton(lang.aimbot, contentFrame, 1)
+        local autoFireBtn = createToggleButton(lang.autoFire, contentFrame, 2)
+        local espBtn = createToggleButton(lang.espEnabled, contentFrame, 3)
+        local smoothingCtrl = createSlider(lang.smoothing, 1, 30, 8, contentFrame, 4)
+        local partDropdown = createDropdown(lang.aimPart, { lang.head, lang.hrp }, lang.head, contentFrame, 5)
+        local maxDistCtrl = createSlider(lang.maxDist, 100, 2000, 1000, contentFrame, 6)
+        local fovEnabled = false
+        local fovBtn = createToggleButton(lang.fovEnabled, contentFrame, 7)
+        local fovRadiusCtrl = createSlider(lang.fovRadius, 50, 400, 200, contentFrame, 8)
+        local wallCheckEnabled = false
+        local wallCheckBtn = createToggleButton(lang.wallCheck, contentFrame, 9)
+        local noticeLabel = Instance.new("TextLabel"); noticeLabel.Size = UDim2.new(1, 0, 0, 24)
+        noticeLabel.LayoutOrder = 10; noticeLabel.BackgroundTransparency = 1; noticeLabel.Font = Enum.Font.SourceSans
+        noticeLabel.TextSize = 11; noticeLabel.TextColor3 = Color3.fromRGB(180,180,180)
+        noticeLabel.TextXAlignment = Enum.TextXAlignment.Center; noticeLabel.Text = lang.notice; noticeLabel.Parent = contentFrame
+
+        local fovCircle = Instance.new("Frame"); fovCircle.Size = UDim2.new(0, 0, 0, 0)
+        fovCircle.BackgroundTransparency = 1; fovCircle.BorderSizePixel = 0; fovCircle.ZIndex = 50
+        fovCircle.Visible = false; fovCircle.Parent = screenGui
+        local fovCircleStroke = Instance.new("UIStroke"); fovCircleStroke.Thickness = 2
+        fovCircleStroke.Color = Color3.fromRGB(255, 255, 255); fovCircleStroke.Transparency = 0.5; fovCircleStroke.Parent = fovCircle
+        local fovCircleCorner = Instance.new("UICorner"); fovCircleCorner.CornerRadius = UDim.new(1, 0); fovCircleCorner.Parent = fovCircle
+        local function updateFOVCircle(radius)
+            if fovEnabled then
+                local diameter = radius * 2; fovCircle.Size = UDim2.new(0, diameter, 0, diameter)
+                fovCircle.Position = UDim2.new(0.5, -radius, 0.5, -radius); fovCircle.Visible = true
+            else fovCircle.Visible = false end
+        end
+
+        local floatFrame = Instance.new("Frame"); floatFrame.Size = UDim2.new(0, 260, 0, 40)
+        floatFrame.Position = UDim2.new(0.5, -130, 0, 10); floatFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        floatFrame.BackgroundTransparency = 0.1; floatFrame.BorderSizePixel = 0; floatFrame.Visible = false
+        floatFrame.Active = true; floatFrame.Draggable = true; floatFrame.Parent = screenGui
+        local floatCorner = Instance.new("UICorner"); floatCorner.CornerRadius = UDim.new(0, 20); floatCorner.Parent = floatFrame
+        local floatStroke = Instance.new("UIStroke"); floatStroke.Thickness = 1.5; floatStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        floatStroke.Color = Color3.fromRGB(255, 100, 100); floatStroke.Parent = floatFrame
+        local floatLabel = Instance.new("TextLabel"); floatLabel.Size = UDim2.new(1, -20, 1, 0); floatLabel.Position = UDim2.new(0, 10, 0, 0)
+        floatLabel.BackgroundTransparency = 1; floatLabel.Font = Enum.Font.SourceSansBold; floatLabel.TextSize = 16
+        floatLabel.TextColor3 = Color3.new(1, 1, 1); floatLabel.Text = lang.floatText; floatLabel.TextXAlignment = Enum.TextXAlignment.Center; floatLabel.Parent = floatFrame
+        local touchStartPos = nil
+        floatFrame.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then touchStartPos = input.Position end end)
+        floatFrame.InputEnded:Connect(function(input)
+            if touchStartPos and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+                if (input.Position - touchStartPos).Magnitude < 5 then mainFrame.Visible = true; floatFrame.Visible = false end
+                touchStartPos = nil
+            end
+        end)
+
+        minimizeBtn.MouseButton1Click:Connect(function() mainFrame.Visible = false; floatFrame.Visible = true end)
+        maximizeBtn.MouseButton1Click:Connect(function()
+            if not isMaximized then
+                lastPosition = mainFrame.Position; lastSize = mainFrame.Size
+                mainFrame.Size = UDim2.new(1, 0, 1, 0); mainFrame.Position = UDim2.new(0, 0, 0, 0)
+                maximizeBtn.Text = "❐"; isMaximized = true
+            else mainFrame.Size = lastSize; mainFrame.Position = lastPosition; maximizeBtn.Text = "□"; isMaximized = false end
+        end)
+
+        fovBtn.MouseButton1Click:Connect(function()
+            fovEnabled = not fovEnabled
+            fovBtn.Text = fovEnabled and (lang.fovEnabled .. " (ON)") or lang.fovEnabled
+            fovBtn.BackgroundColor3 = fovEnabled and Color3.fromRGB(200, 50, 50) or Color3.fromRGB(60, 160, 60)
+            updateFOVCircle(fovRadiusCtrl.GetValue())
+        end)
+        wallCheckBtn.MouseButton1Click:Connect(function()
+            wallCheckEnabled = not wallCheckEnabled
+            wallCheckBtn.Text = wallCheckEnabled and (lang.wallCheck .. " (ON)") or lang.wallCheck
+            wallCheckBtn.BackgroundColor3 = wallCheckEnabled and Color3.fromRGB(200, 50, 50) or Color3.fromRGB(60, 160, 60)
+        end)
+
+        local espEnabled = false
+        local espTag = "ESP_Added"
+        local function addEspToEnemy(enemy)
+            if enemy:GetAttribute(espTag) then return end
+            local hrp = enemy:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
+            local billboard = Instance.new("BillboardGui"); billboard.Name = "ESP_Gui"
+            billboard.Size = UDim2.new(0, 200, 0, 30); billboard.StudsOffset = Vector3.new(0, 3, 0)
+            billboard.AlwaysOnTop = true; billboard.Adornee = hrp
+            local nameLabel = Instance.new("TextLabel"); nameLabel.Size = UDim2.new(1, 0, 1, 0)
+            nameLabel.BackgroundTransparency = 1; nameLabel.Font = Enum.Font.SourceSansBold; nameLabel.TextSize = 16
+            nameLabel.TextColor3 = Color3.new(1, 0, 0); nameLabel.TextStrokeTransparency = 0.5
+            nameLabel.Text = ENEMY_CN[enemy.Name] or enemy.Name; nameLabel.Parent = billboard
+            billboard.Parent = enemy; enemy:SetAttribute(espTag, true)
+        end
+        local function removeEspFromEnemy(enemy)
+            local billboard = enemy:FindFirstChild("ESP_Gui")
+            if billboard then billboard:Destroy() end; enemy:SetAttribute(espTag, nil)
+        end
+        local function getEnemies()
+            local enemies = {}
+            local folder = Workspace:FindFirstChild("Enemies")
+            if folder then
+                for _, obj in ipairs(folder:GetDescendants()) do
+                    if obj:IsA("Model") then
+                        for _, name in ipairs(ENEMY_NAMES) do
+                            if obj.Name == name then
+                                local humanoid = obj:FindFirstChild("Humanoid")
+                                local hrp = obj:FindFirstChild("HumanoidRootPart")
+                                if humanoid and hrp and humanoid.Health > 0 then table.insert(enemies, obj) end
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+            return enemies
+        end
+        local function updateAllEsp()
+            local enemies = getEnemies()
+            for _, enemy in ipairs(enemies) do addEspToEnemy(enemy) end
+            local folder = Workspace:FindFirstChild("Enemies")
+            if folder then
+                for _, model in ipairs(folder:GetDescendants()) do
+                    if model:IsA("Model") and model:GetAttribute(espTag) then
+                        local humanoid = model:FindFirstChild("Humanoid")
+                        if not humanoid or humanoid.Health <= 0 or not model.Parent then removeEspFromEnemy(model) end
+                    end
+                end
+            end
+        end
+        local espThread = nil
+        local function espLoop() while espEnabled do updateAllEsp(); task.wait(2) end end
+
+        espBtn.MouseButton1Click:Connect(function()
+            espEnabled = not espEnabled
+            if espEnabled then
+                espBtn.Text = lang.espEnabled .. " (ON)"; espBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+                updateAllEsp(); espThread = task.spawn(espLoop)
+                showNotification(lang.espOn, "", 2)
+            else
+                espBtn.Text = lang.espEnabled; espBtn.BackgroundColor3 = Color3.fromRGB(60, 160, 60)
+                if espThread then task.cancel(espThread) end
+                local folder = Workspace:FindFirstChild("Enemies")
+                if folder then for _, model in ipairs(folder:GetDescendants()) do if model:IsA("Model") and model:GetAttribute(espTag) then removeEspFromEnemy(model) end end end
+            end
+        end)
+
+        local aimbotEnabled = false
+        local autoFireEnabled = false
+        local lastFireTime = 0
+
+        local function isInFov(enemyPart)
+            if not fovEnabled then return true end
+            local camera = Workspace.CurrentCamera
+            local screenPos, onScreen = camera:WorldToScreenPoint(enemyPart.Position)
+            if not onScreen then return false end
+            local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+            return (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude <= fovRadiusCtrl.GetValue()
+        end
+        local function isTargetBlocked(targetPos, enemyModel)
+            if not wallCheckEnabled then return false end
+            local char = player.Character
+            if not char or not char:FindFirstChild("HumanoidRootPart") then return true end
+            local origin = char.HumanoidRootPart.Position
+            local direction = targetPos - origin
+            local rayParams = RaycastParams.new(); rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+            local ignoreList = {char, enemyModel}; rayParams.FilterDescendantsInstances = ignoreList
+            return Workspace:Raycast(origin, direction, rayParams) ~= nil
+        end
+        local function getClosestEnemy()
+            local char = player.Character
+            if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
+            local myPos = char.HumanoidRootPart.Position
+            local closest = nil; local minDist = maxDistCtrl.GetValue()
+            for _, enemy in ipairs(getEnemies()) do
+                local hrp = enemy:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local dist = (hrp.Position - myPos).Magnitude
+                    if dist < minDist and isInFov(hrp) then
+                        local aimPos = nil
+                        local partName = partDropdown.GetValue()
+                        if partName == lang.head then local h = enemy:FindFirstChild("Head"); aimPos = h and h.Position else aimPos = hrp.Position end
+                        if aimPos and not isTargetBlocked(aimPos, enemy) then minDist = dist; closest = enemy end
+                    end
+                end
+            end
+            return closest
+        end
+        local function getAimPosition(enemy)
+            local partName = partDropdown.GetValue()
+            if partName == lang.head then local h = enemy:FindFirstChild("Head"); return h and h.Position end
+            local hrp = enemy:FindFirstChild("HumanoidRootPart"); return hrp and hrp.Position
+        end
+        local function isAimingAtTarget(targetPos)
+            local camera = Workspace.CurrentCamera
+            local screenPos, onScreen = camera:WorldToScreenPoint(targetPos)
+            if not onScreen then return false end
+            local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+            return (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude <= 30
+        end
+        local function doAutoFire(targetPos)
+            if not currentWeapon or not currentRemoteEvent then return end
+            local char = player.Character; local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local origin = hrp.Position; local direction = (targetPos - origin).Unit * 1000
+                pcall(function() currentRemoteEvent:FireServer(Ray.new(origin, direction), "Shoot") end)
+            end
+        end
+        local function tryAutoFire(targetPos)
+            if not autoFireEnabled then return end
+            local now = tick(); if now - lastFireTime < 0.15 then return end
+            if isAimingAtTarget(targetPos) then lastFireTime = now; doAutoFire(targetPos) end
+        end
+
+        local function aimbotLoop()
+            local camera = Workspace.CurrentCamera
+            while aimbotEnabled do
+                local enemy = getClosestEnemy()
+                if enemy then
+                    local targetPos = getAimPosition(enemy)
+                    if targetPos then
+                        local smooth = smoothingCtrl.GetValue()
+                        camera.CFrame = camera.CFrame:Lerp(CFrame.lookAt(camera.CFrame.Position, targetPos), 1 / smooth)
+                        tryAutoFire(targetPos)
+                    end
+                end
+                RunService.RenderStepped:Wait()
+            end
+        end
+
+        local aimbotThread = nil
+        aimbotBtn.MouseButton1Click:Connect(function()
+            aimbotEnabled = not aimbotEnabled
+            if aimbotEnabled then
+                aimbotBtn.Text = lang.aimbot .. " (ON)"; aimbotBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+                aimbotThread = task.spawn(aimbotLoop); showNotification(lang.aimbotOn, "", 2)
+            else aimbotBtn.Text = lang.aimbot; aimbotBtn.BackgroundColor3 = Color3.fromRGB(60, 160, 60) end
+        end)
+        autoFireBtn.MouseButton1Click:Connect(function()
+            autoFireEnabled = not autoFireEnabled
+            if autoFireEnabled then
+                autoFireBtn.Text = lang.autoFire .. " (ON)"; autoFireBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+                showNotification(lang.autoFireOn, "", 2)
+            else autoFireBtn.Text = lang.autoFire; autoFireBtn.BackgroundColor3 = Color3.fromRGB(60, 160, 60) end
+        end)
+
+        local function addToggleHover(btn, getActive, activeColor)
+            local orig = btn.BackgroundColor3
+            btn.MouseEnter:Connect(function() if not getActive() then btn.BackgroundColor3 = orig:Lerp(Color3.new(1,1,1), 0.15) end end)
+            btn.MouseLeave:Connect(function() btn.BackgroundColor3 = getActive() and activeColor or orig end)
+        end
+        addToggleHover(aimbotBtn, function() return aimbotEnabled end, Color3.fromRGB(200,50,50))
+        addToggleHover(autoFireBtn, function() return autoFireEnabled end, Color3.fromRGB(200,50,50))
+        addToggleHover(fovBtn, function() return fovEnabled end, Color3.fromRGB(200,50,50))
+        addToggleHover(wallCheckBtn, function() return wallCheckEnabled end, Color3.fromRGB(200,50,50))
+        addToggleHover(espBtn, function() return espEnabled end, Color3.fromRGB(200,50,50))
+
+        local fovInput = fovRadiusCtrl.Frame:FindFirstChild("TextBox")
+        if fovInput then fovInput:GetPropertyChangedSignal("Text"):Connect(function() if fovEnabled then updateFOVCircle(tonumber(fovInput.Text) or 150) end end) end
+        updateFOVCircle(fovRadiusCtrl.GetValue())
+
+        RunService.Heartbeat:Connect(function()
+            local hue = (tick() * 0.5) % 1; local color = Color3.fromHSV(hue, 1, 1)
+            mainStroke.Color = color; floatStroke.Color = color
+        end)
+    end
+    createMainGui()
+end
 function loadAnimalHospital() end
 
 createLanguageSelection()
